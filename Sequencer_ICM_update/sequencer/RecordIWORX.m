@@ -1,4 +1,4 @@
- function ecgtrac=RecordIWORX(saveFolder,saveFile,ecgbuffer)
+  function ecgtrac=RecordIWORX(saveFolder,saveFile,ecgbuffer)
 %% PATHS and files
 RootSave = 'D:\michael\';
 % DirSave     = ['simu'];
@@ -12,7 +12,7 @@ addpath(RootSave);
 disp('recording ECG');
 TIME_SECONDS=2; %P.nbAcq.*P.frameRate
 SETTINGS_FILE_NAME = 'test.iwxset';
-BUFFER_SIZE_SECONDS = 0.05;
+BUFFER_SIZE_SECONDS = 0.5;
 % CHANNEL_DATA_OFFSET_IN_PLOT = 10; % This is the offset of all the channels in plot
 %% Dont change below here
 IWORXDAQ = 'iwxDAQ';
@@ -47,6 +47,7 @@ DATA_BUFFER_SIZE =  2^(nextpow2(samplerate * num_analog_channels / max_grabs_per
 
 
 % Read Data and save it to file
+
 chData = cell(1, num_analog_channels); % Allocate data array
 
 fprintf('Current Model : %s\nSerial Number : %s\n', model_name, serial_number)
@@ -57,12 +58,14 @@ fprintf('Samplerate : %u\n', samplerate)
 % if num_samples_per_ch > DATA_BUFFER_SIZE, a bigger buffer should be defined!)
 % Notice: data is saved as [ch1(1), ch2(1), ch3(1)... chn(1), ch1(2), ch2(2), ch3(2)... chn(2), ...]
 cntr = 0 : num_analog_channels : DATA_BUFFER_SIZE - num_analog_channels;
+
 cur_len = 0;
+
 % Setup a timer.
 % Start Acquisition
 failed_StartAcq = calllib(IWORXDAQ, 'StartAcq', DATA_BUFFER_SIZE); % setup internal buffer for 1 second worth of data.
-tic
-while (length(chData{1,2})<32*50)
+t=tic;
+while (toc(t)<2)
 	[iRet, num_samples_per_ch, trig_index, trig_string, data] = calllib(IWORXDAQ, 'ReadDataFromDevice', ...
 		0, 0, blanks(STR_BUFFER_SIZE), STR_BUFFER_SIZE, zeros(1, DATA_BUFFER_SIZE), DATA_BUFFER_SIZE);
 	% Notice: data is saved as [ch1(1), ch2(1), ch3(1)... chn(1), ch1(2), ch2(2), ch3(2)... chn(2), ...]
@@ -89,11 +92,12 @@ while (length(chData{1,2})<32*50)
     end
 	% update current length of data for each channel
 	cur_len = cur_len + num_samples_per_ch; 
+%     toc(t);
 end
-toc
+toc(t)
 
 %% saving ECG
-fileID =fopen('ecgcount.bin'); % Open file
+fileID =fopen(saveFolder+"ecgcount.bin"); % Open file
 ecgbuffer = fread(fileID, Inf, 'int16=>int16'); % Read file
 fclose(fileID); 
 save([saveFolder,[saveFile,'_data',num2str(ecgbuffer),'.mat']],'chData')
@@ -101,11 +105,10 @@ save([saveFolder,[saveFile,'_data',num2str(ecgbuffer),'.mat']],'chData')
 % fwrite(fileRFDATA,chData{1,2},'single','ieee-le');
 % fclose(fileRFDATA);
 %%%
-toc(t)
 %% Close down iwxDAQ
 calllib(IWORXDAQ, 'StopAcq');
 % Close the iWorx Device
 calllib(IWORXDAQ, 'CloseIworxDevice');
 % Unload the library
 unloadlibrary(IWORXDAQ);
- end
+  end
